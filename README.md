@@ -1,73 +1,111 @@
-# Chess.com · Tablero flotante
+# Chess PiP
 
-Extensión local para Chrome de escritorio (119 o posterior), sin compilación.
+Extensión para jugar en Chess.com desde un tablero interactivo en una ventana
+flotante que permanece por encima de otras aplicaciones.
 
 ## Instalación
 
-1. Abre `chrome://extensions`.
-2. Activa **Modo de desarrollador**.
-3. Pulsa **Cargar descomprimida** y selecciona `C:\code\chess-pip-extension`.
-4. Recarga la pestaña de chess.com para que se cargue la extensión.
-5. Abre una partida contra un bot y pulsa **♟ Abrir tablero flotante**, abajo a la derecha.
+Necesitas Chrome de escritorio, versión 119 o posterior.
 
-La ventana se puede arrastrar sobre otras aplicaciones y redimensionar. La pestaña
-original debe permanecer abierta. Cierra PiP o pulsa **Devolver tablero a la página**
-en la pestaña original para restaurarlo. La ventana flotante contiene únicamente el
-tablero, sin filas de jugadores, barra de botones ni márgenes añadidos.
-Debajo del tablero aparece una franja negra con los tiempos en blanco, en una sola
-línea: `mi tiempo - tiempo del otro`, sin etiquetas. Los valores se toman de los
-relojes de Chess.com y se identifican mediante el perfil del usuario conectado.
-El tablero se ajusta al espacio disponible para que la franja no tape las piezas.
-Los tiempos, el nombre y el Elo del oponente aparecen en una única línea de 10 px:
-`mi tiempo - tiempo del otro · Oponente (Elo)`. La franja mide 18 px de alto.
-Los datos se actualizan al cambiar de partida.
-Cuando Chess.com solicita confirmar una jugada, aparecen los iconos **✕** (cancelar)
-y **✓** (confirmar), abajo a la derecha sobre el tablero, justo encima de la barra
-negra. Cada botón mide media casilla de alto y de ancho y tiene una etiqueta accesible.
-Cada uno activa su botón original; desaparecen cuando ya no hay confirmación pendiente.
-Respetan los estados deshabilitado y de carga.
+1. Descarga este repositorio desde **Code → Download ZIP** y descomprímelo, o clónalo:
 
-## Qué hace
+   ```sh
+   git clone https://github.com/AlexisLeite/chess-pip.git
+   ```
 
-- Traslada únicamente el componente real del tablero; jugadores y relojes quedan en la pestaña.
-- Conserva los estilos de la página y adapta el tablero al tamaño de la ventana.
-- Reenvía movimientos y liberaciones del ratón/puntero a los manejadores del documento original.
-- Mantiene PiP abierto durante la navegación interna y traslada el nuevo tablero si la página lo reemplaza.
-- Restaura el tablero de la partida actual cuando cierras PiP o pulsas Devolver.
-- Muestra un error y restaura el tablero si falla la preparación de la ventana.
-- Solo se ejecuta en chess.com. No solicita permisos de otras páginas, no lee credenciales,
-  no envía datos a servidores y no incluye motores ni sugerencias de jugadas.
+2. Abre `chrome://extensions` en Chrome.
+3. Activa **Modo de desarrollador**, arriba a la derecha.
+4. Pulsa **Cargar descomprimida** y selecciona la carpeta que contiene `manifest.json`.
+5. Recarga las pestañas de Chess.com que ya estuvieran abiertas.
 
-## Alcance de esta primera versión
+Para usarla no necesitas instalar dependencias, compilar ni iniciar un servidor.
 
-Es un prototipo para probar: la interacción real del tablero dentro de PiP todavía
-requiere validación manual tras cargar la extensión. No se puede asegurar que todos
-los modos de Chess.com funcionen igual ni que futuras actualizaciones mantengan su DOM.
-El panel lateral permanece en la pestaña. Al avanzar a otra partida diaria mediante
-la navegación interna, PiP muestra el tablero nuevo y actualiza los tiempos y controles.
-Mientras se crea el nuevo tablero, oculta y desactiva el anterior. Si la página reutiliza
-el componente, permanece en PiP. Una recarga completa del documento cierra PiP por una
-restricción de Chrome; en ese caso es necesario abrirlo de nuevo con el botón.
+## Cómo se usa
 
-Se investigó una partida completa contra Marko (300), terminada en 29.Ah6#.
-Se verificaron movimientos con dos clics, capturas, jaques, enroque, actualización de
-jugadas, cambio de URL y pantalla de resultado. Esa partida se jugó en la página
-normal: la herramienta de Chrome bloqueó la inyección de la prueba de PiP.
+1. Inicia sesión en [Chess.com](https://www.chess.com) y abre una partida.
+2. Pulsa **♟ Abrir tablero flotante**, abajo a la derecha de la página.
+3. Mueve o redimensiona la ventana como prefieras.
+4. Juega directamente en el tablero flotante, seleccionando una pieza y su destino
+   o arrastrándola hasta la casilla correspondiente.
 
-## Prueba manual recomendada
+Mantén abierta la pestaña original: conserva la partida y la conexión. Puedes cambiar
+de pestaña o trabajar en otra aplicación mientras el tablero queda visible. El chat,
+los ajustes y los demás controles de Chess.com siguen en la pestaña original.
 
-1. En una partida contra un bot, abre PiP y mueve con clic de origen y destino.
-2. Comprueba que el bot responde y que ambas jugadas se reflejan en la pestaña.
-3. Prueba arrastrar una pieza, redimensionar y jugar con otra aplicación delante.
-4. Cierra y vuelve a abrir PiP varias veces; verifica que el tablero vuelve a su sitio.
-5. Prueba una partida con reloj, enroque, promoción y el final de partida.
-6. Si algo falla, devuelve el tablero. Si fuese necesario, recarga la página.
+Para devolver el tablero a su lugar, cierra la ventana flotante o pulsa
+**♟ Devolver tablero a la página** en la pestaña original.
+
+### Confirmar o cancelar
+
+En partidas que requieren confirmación, aparecen dos botones pequeños abajo a la
+derecha del tablero, justo encima de la franja negra:
+
+| Icono | Acción |
+| --- | --- |
+| **✕** | Cancela la jugada pendiente para elegir otra. |
+| **✓** | Confirma y envía la jugada mediante el botón original de Chess.com. |
+
+Los botones aparecen cuando la página ofrece esas acciones y desaparecen al dejar
+de haber una jugada pendiente. Cada uno ocupa media casilla de alto y de ancho.
+La extensión nunca confirma una jugada automáticamente.
+
+### Tiempos y oponente
+
+La franja negra debajo del tablero muestra una sola línea con letra pequeña:
+
+```text
+24 hrs - 1 day · joaquin2000zzzz (936)
+```
+
+El primer tiempo es el tuyo; el segundo es el del oponente. A continuación aparecen
+su nombre y Elo. Los datos se leen de la página y se actualizan durante la partida.
+
+### Siguiente partida diaria
+
+Si Chess.com avanza a otro juego mediante su navegación interna, la extensión mantiene
+la misma ventana flotante y muestra el tablero, los tiempos y el oponente nuevos.
+Mientras carga el nuevo tablero, el anterior se oculta y queda desactivado.
+
+Una recarga completa de la página cierra PiP por una restricción de Chrome. En ese
+caso, pulsa nuevamente **♟ Abrir tablero flotante**.
+
+## Actualizar
+
+1. Descarga la nueva versión o ejecuta `git pull` dentro de la carpeta del repositorio.
+2. Abre `chrome://extensions` y pulsa el botón de recarga de **Chess.com · Tablero flotante**.
+3. Recarga la página de Chess.com y vuelve a abrir el tablero flotante.
+
+## Si algo no funciona
+
+- **No aparece el botón:** recarga Chess.com, comprueba que la extensión esté activada
+  y abre una partida con un tablero visible.
+- **El tablero no responde:** cierra PiP para devolverlo a la página. Si sigue fallando,
+  recarga la página y vuelve a abrir PiP.
+- **PiP se cierra al navegar:** una recarga completa cierra la ventana; ábrela de nuevo.
+- **Faltan tiempos o datos del oponente:** solo se muestran los datos disponibles en
+  la página para el usuario conectado y el modo de juego actual.
+
+Es una extensión experimental. Los cambios de interfaz de Chess.com pueden requerir
+ajustes. Conviene probar primero contra un bot antes de usarla en otras partidas.
+
+## Privacidad
+
+La extensión se ejecuta únicamente en Chess.com. No incluye motores de ajedrez,
+no recomienda jugadas y no envía datos a servidores propios. Todo su código está
+incluido en este repositorio.
 
 ## Desarrollo
 
-`main.js` se ejecuta en el contexto MAIN porque comparte elementos y eventos con la
-página. Todo el código está incluido en este directorio; no necesita servidor.
-El botón dentro de la página conserva la activación de usuario exigida por Document PiP.
+`main.js` se carga mediante un content script en el contexto MAIN y usa Document
+Picture-in-Picture para trasladar el componente real del tablero y devolverlo al cerrar.
 
-Pruebas de ciclo de vida con Node: `npm ci --ignore-scripts` y `npm test`.
-Las pruebas simulan el DOM y la API PiP; no sustituyen la prueba manual en Chrome.
+Para ejecutar las pruebas automatizadas con Node.js y npm:
+
+```sh
+npm ci --ignore-scripts
+npm test
+```
+
+Las pruebas simulan el DOM y la API PiP para comprobar apertura, restauración,
+confirmación, cancelación, tiempos y cambios de tablero. No sustituyen la prueba
+manual de interacción en Chrome.
