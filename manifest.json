@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Chess.com · Tablero flotante",
+  "version": "0.1.7",
+  "description": "Abre el tablero de Chess.com en una ventana Picture-in-Picture interactiva.",
+  "minimum_chrome_version": "119",
+  "action": {
+    "default_title": "Cómo abrir el tablero flotante",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{
+    "matches": ["https://www.chess.com/*", "https://chess.com/*"],
+    "js": ["main.js"],
+    "run_at": "document_idle",
+    "world": "MAIN"
+  }]
+}
