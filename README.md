@@ -66,6 +66,17 @@ Si Chess.com avanza a otro juego mediante su navegación interna, la extensión 
 la misma ventana flotante y muestra el tablero, los tiempos y el oponente nuevos.
 Mientras carga el nuevo tablero, el anterior se oculta y queda desactivado.
 
+Cuando se agotan las partidas para responder y el tablero queda vacío durante cinco
+segundos, PiP muestra **Aguardando próximo movimiento**. La pestaña pasa a mostrar
+el home de Chess.com y lo revisa cada 30 segundos. Si el home se actualiza por sí
+solo, la extensión también detecta la partida sin esperar esa revisión. Cuando
+aparece una partida donde te toca mover, la abre y devuelve el tablero al mismo PiP.
+
+Para conservar PiP, estas navegaciones se realizan dentro de un marco de Chess.com
+que ocupa la pestaña original. La barra de direcciones conserva la URL anterior;
+el contenido visible muestra el home o la partida actual. Mantén esa pestaña abierta.
+Cerrar PiP detiene la revisión automática y deja el contenido actual en la pestaña.
+
 Una recarga completa de la página cierra PiP por una restricción de Chrome. En ese
 caso, pulsa nuevamente **♟ Abrir tablero flotante**.
 
@@ -84,6 +95,9 @@ caso, pulsa nuevamente **♟ Abrir tablero flotante**.
 - **PiP se cierra al navegar:** una recarga completa cierra la ventana; ábrela de nuevo.
 - **Faltan tiempos o datos del oponente:** solo se muestran los datos disponibles en
   la página para el usuario conectado y el modo de juego actual.
+- **No se pudo cargar Chess.com durante la espera:** revisa la pestaña original.
+  Si aparece un inicio de sesión o una verificación, complétalo allí. Si Chess.com
+  impide cargar el marco, recarga la pestaña y vuelve a abrir PiP desde una partida.
 
 Es una extensión experimental. Los cambios de interfaz de Chess.com pueden requerir
 ajustes. Conviene probar primero contra un bot antes de usarla en otras partidas.
@@ -96,7 +110,7 @@ incluido en este repositorio.
 
 ## Desarrollo
 
-`main.js` se carga mediante un content script en el contexto MAIN y usa Document
+`daily-flow.js` y `main.js` se cargan mediante content scripts en el contexto MAIN y usan Document
 Picture-in-Picture para trasladar el componente real del tablero y devolverlo al cerrar.
 
 Para ejecutar las pruebas automatizadas con Node.js y npm:
@@ -107,5 +121,6 @@ npm test
 ```
 
 Las pruebas simulan el DOM y la API PiP para comprobar apertura, restauración,
-confirmación, cancelación, tiempos y cambios de tablero. No sustituyen la prueba
+confirmación, cancelación, tiempos, cambios de tablero y el ciclo de espera y
+reanudación de partidas diarias. No sustituyen la prueba
 manual de interacción en Chrome.

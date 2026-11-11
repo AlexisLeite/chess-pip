@@ -1,9 +1,9 @@
 {
   "name": "chess-pip-extension",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
-    "test": "node --test tests/lifecycle.test.cjs"
+    "test": "node --test tests/lifecycle.test.cjs tests/daily-flow.test.cjs"
   },
   "devDependencies": {
     "linkedom": "0.18.12"

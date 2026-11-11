@@ -3,15 +3,40 @@
   'use strict';
   const KEY = '__chessFloatingBoardV1';
   if (window[KEY]) return;
-  const sourceDocument = document;
+  const ownerDocument = document;
+  let sourceDocument = document;
   let session = null;
   let opening = false;
+  const sourceWindow = () => sourceDocument === ownerDocument ? window : sourceDocument.defaultView || window;
+  const sourceUrl = () => sourceDocument === ownerDocument ? location.href
+    : sourceDocument.location?.href || session?.url || location.href;
+  const dailyFlow = window.__chessDailyFlowFactory({
+    ownerDocument, getDocument: () => sourceDocument, getUrl: sourceUrl,
+    onDocument: doc => {
+      sourceDocument = doc;
+      if (session) session.watchStyles?.();
+    },
+    onWaiting: (waiting, text) => {
+      if (!session) return;
+      session.waiting = waiting;
+      let notice = session.window.document.querySelector('#floating-daily-waiting');
+      if (!waiting) { notice?.remove(); return; }
+      if (!notice) {
+        notice = session.window.document.createElement('div');
+        notice.id = 'floating-daily-waiting';
+        notice.setAttribute('role', 'status');
+        session.window.document.body.append(notice);
+      }
+      notice.textContent = text;
+    },
+  });
   const host = document.createElement('div');
   host.id = 'chess-floating-board-extension';
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>
     :host { all: initial; position: fixed; right: 20px; bottom: 20px;
       z-index: 2147483647; font: 14px/1.4 system-ui, sans-serif; }
+    :host([hidden]) { display:none; }
     button { border: 1px solid #b0ce8b; border-radius: 9px; padding: 11px 16px;
       background: #466d2c; color: #fff; font: 600 14px system-ui; cursor: pointer;
       box-shadow: 0 3px 16px #0006; }
@@ -32,7 +57,7 @@
   }
 
   function findBoard() {
-    return Array.from(document.querySelectorAll('wc-chess-board, chess-board'))
+    return Array.from(sourceDocument.querySelectorAll('wc-chess-board, chess-board'))
       .find(board => board.getBoundingClientRect().width > 100);
   }
 
@@ -43,24 +68,24 @@
   }
 
   function copyVariables(from, to) {
-    const computed = window.getComputedStyle(from);
+    const computed = sourceWindow().getComputedStyle(from);
     for (const name of computed) {
       if (name.startsWith('--')) to.style.setProperty(name, computed.getPropertyValue(name));
     }
   }
 
   function copyTheme(pipDocument) {
-    pipDocument.documentElement.className = document.documentElement.className;
-    pipDocument.body.className = document.body.className;
-    pipDocument.documentElement.lang = document.documentElement.lang || 'en';
-    copyVariables(document.documentElement, pipDocument.documentElement);
-    copyVariables(document.body, pipDocument.body);
+    pipDocument.documentElement.className = sourceDocument.documentElement.className;
+    pipDocument.body.className = sourceDocument.body.className;
+    pipDocument.documentElement.lang = sourceDocument.documentElement.lang || 'en';
+    copyVariables(sourceDocument.documentElement, pipDocument.documentElement);
+    copyVariables(sourceDocument.body, pipDocument.body);
   }
 
   function mirrorStyles(current) {
     const target = current.window.document;
     const fragment = target.createDocumentFragment();
-    for (const sheet of document.styleSheets) {
+    for (const sheet of sourceDocument.styleSheets) {
       let element;
       try {
         element = target.createElement('style');
@@ -81,7 +106,7 @@
       element.disabled = sheet.disabled;
       fragment.append(element);
     }
-    for (const sheet of document.adoptedStyleSheets || []) {
+    for (const sheet of sourceDocument.adoptedStyleSheets || []) {
       const element = target.createElement('style');
       element.textContent = Array.from(sheet.cssRules, rule => rule.cssText).join('\n');
       fragment.append(element);
@@ -102,7 +127,8 @@
   function signalResize(current) {
     resizeBoard(current);
     // Chess.com's existing handlers belong to the source window, even in PiP.
-    window.dispatchEvent(new Event('resize'));
+    const target = sourceWindow();
+    target.dispatchEvent(new target.Event('resize'));
   }
 
   function bridgeInput(current) {
@@ -114,8 +140,10 @@
     const forward = event => {
       // Down/click stay on the real board. Only continue document-level gestures
       // and keyboard handlers registered by Chess.com in the original document.
-      const Constructor = pointerEvents.includes(event.type) ? window.PointerEvent
-        : keyboardEvents.includes(event.type) ? window.KeyboardEvent : window.MouseEvent;
+      if (current.waiting) return;
+      const target = sourceWindow();
+      const Constructor = pointerEvents.includes(event.type) ? target.PointerEvent
+        : keyboardEvents.includes(event.type) ? target.KeyboardEvent : target.MouseEvent;
       const fields = ['clientX', 'clientY', 'screenX', 'screenY', 'button', 'buttons',
         'ctrlKey', 'altKey', 'shiftKey', 'metaKey', 'movementX', 'movementY',
         'pointerId', 'pointerType', 'isPrimary', 'width', 'height', 'pressure',
@@ -134,15 +162,17 @@
   function restore(current) {
     if (current.restored) return;
     current.restored = true;
+    dailyFlow.stop();
     for (const cleanup of current.cleanups.splice(0)) cleanup();
-    if (current.marker.isConnected) current.marker.replaceWith(current.root);
-    else if (current.parent.isConnected && !findBoard()) current.parent.append(current.root);
+    if (current.marker.isConnected && current.marker.ownerDocument === sourceDocument) current.marker.replaceWith(current.root);
+    else if (current.parent.isConnected && current.parent.ownerDocument === sourceDocument && !findBoard()) current.parent.append(current.root);
     else current.root.remove();
     current.placeholder?.remove();
     current.root.removeAttribute('data-floating-chess-root');
     if (session === current) session = null;
     updateButton();
-    window.dispatchEvent(new Event('resize'));
+    const target = sourceWindow();
+    target.dispatchEvent(new target.Event('resize'));
   }
 
   function closeSession() {
@@ -154,12 +184,12 @@
   }
 
   function createPlaceholder(current) {
-    const placeholder = document.createElement('div');
+    const placeholder = sourceDocument.createElement('div');
     placeholder.style.cssText = 'padding:28px;min-height:180px;display:grid;place-content:center;'
       + 'gap:16px;text-align:center;background:#262822;color:#fff;border-radius:12px';
-    const text = document.createElement('p');
+    const text = sourceDocument.createElement('p');
     text.textContent = 'Tu tablero está en la ventana flotante.';
-    const back = document.createElement('button');
+    const back = sourceDocument.createElement('button');
     back.textContent = 'Devolver tablero';
     back.style.cssText = 'padding:12px;cursor:pointer;background:#81b64c;color:#fff;border:0;border-radius:6px';
     back.addEventListener('click', closeSession);
@@ -177,7 +207,7 @@
       || group.querySelector(`button[aria-label="${label}"]`);
     if (!control || !control.isConnected || !control.getClientRects().length) return null;
     for (let element = control; element; element = element.parentElement) {
-      const style = window.getComputedStyle(element);
+      const style = sourceWindow().getComputedStyle(element);
       if (element.hidden || style.display === 'none' || style.visibility === 'hidden') return null;
     }
     return control;
@@ -204,8 +234,8 @@
         overlay.title = label;
         overlay.addEventListener('click', event => {
           event.stopPropagation();
-          if (session !== current || overlay.disabled || stage.inert) return;
-          if (current.url !== location.href || !current.marker.isConnected || findBoard()) {
+          if (session !== current || overlay.disabled || stage.inert || current.waiting) return;
+          if (current.url !== sourceUrl() || !current.marker.isConnected || findBoard()) {
             followBoard(current, stage);
             syncConfirmation(current, stage);
             return;
@@ -270,6 +300,9 @@
     const sync = () => {
       if (session !== current) return;
       followBoard(current, stage);
+      dailyFlow.tick(current);
+      stage.style.visibility = stage.inert || current.waiting ? 'hidden' : '';
+      if (current.waiting) return;
       syncConfirmation(current, stage);
       syncClocks(current, stage);
     };
@@ -301,10 +334,10 @@
     }
     // During asynchronous rendering, hide and disable the retired game rather
     // than accepting moves on it. A subsequent tick attaches the next board.
-    stage.inert = !current.marker.isConnected;
+    stage.inert = !current.marker.isConnected || current.marker.ownerDocument !== sourceDocument;
     stage.style.visibility = stage.inert ? 'hidden' : '';
-    if (current.url !== location.href) {
-      current.url = location.href;
+    if (current.url !== sourceUrl()) {
+      current.url = sourceUrl();
       current.window.document.querySelector('base').href = sourceDocument.baseURI;
       copyTheme(current.window.document);
       mirrorStyles(current);
@@ -316,7 +349,7 @@
     const target = pip.document;
     target.title = 'Chess.com · Tablero flotante';
     const base = target.createElement('base');
-    base.href = document.baseURI;
+    base.href = sourceDocument.baseURI;
     target.head.append(base);
     copyTheme(target);
     const style = target.createElement('style');
@@ -325,6 +358,9 @@
         width:100%!important; height:100%!important; display:block!important;
         overflow:hidden!important; background:#000!important; }
       body { display:flex!important; align-items:center; justify-content:center; }
+      #floating-daily-waiting { position:fixed; inset:0; z-index:2000; display:grid;
+        place-items:center; padding:24px; background:#111; color:#ddd;
+        text-align:center; font:400 14px/1.5 system-ui; }
       #floating-stage { position:relative; display:flex; flex-direction:column;
         align-items:center; justify-content:flex-start; width:var(--floating-board-size);
         height:calc(var(--floating-board-size) + var(--floating-clock-height, 0px)); margin:0; padding:0; }
@@ -380,7 +416,11 @@
         try { mirrorStyles(current); } catch (error) { console.warn('[Chess PiP] Styles', error); }
       }, 120);
     });
-    stylesChanged.observe(document.head, { subtree: true, childList: true, characterData: true });
+    current.watchStyles = () => {
+      stylesChanged.disconnect();
+      stylesChanged.observe(sourceDocument.head, { subtree: true, childList: true, characterData: true });
+    };
+    current.watchStyles();
     current.cleanups.push(() => { stylesChanged.disconnect(); clearTimeout(pending); });
     signalResize(current);
   }
@@ -405,9 +445,9 @@
         pip.close();
         throw new Error('La página cambió mientras se abría la ventana. Vuelve a intentarlo.');
       }
-      const marker = document.createComment('Chess PiP: posición original');
+      const marker = sourceDocument.createComment('Chess PiP: posición original');
       current = { window: pip, root, marker, parent: root.parentNode,
-        cleanups: [], styles: [], restored: false, url: location.href };
+        cleanups: [], styles: [], restored: false, url: sourceUrl() };
       root.before(marker);
       session = current;
       createPlaceholder(current);
@@ -434,6 +474,7 @@
   }, 800);
   window.addEventListener('pagehide', () => {
     closeSession();
+    dailyFlow.destroy();
     clearInterval(refresh);
     clearTimeout(messageTimer);
   }, { once: true });

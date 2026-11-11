@@ -4,7 +4,8 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const { runInNewContext } = require('node:vm');
 const { parseHTML, EventTarget, Event } = require('linkedom');
-const source = readFileSync(join(__dirname, '..', 'main.js'), 'utf8');
+const source = readFileSync(join(__dirname, '..', 'daily-flow.js'), 'utf8')
+  + '\n' + readFileSync(join(__dirname, '..', 'main.js'), 'utf8');
 
 function fixture({ reject = false, setupError = false, unsupported = false } = {}) {
   const { document } = parseHTML(`<!doctype html><html><head></head><body>
@@ -41,9 +42,10 @@ function fixture({ reject = false, setupError = false, unsupported = false } = {
   if (setupError) pip.document.createElement = () => { throw new Error('Style setup failed'); };
   const timers = new Map();
   let timerId = 0;
+  let now = 0;
   const location = { href: 'https://www.chess.com/play/computer' };
   const context = {
-    window, document, location, Event: window.Event,
+    window, document, location, Event: window.Event, URL, Date: { now: () => now },
     MutationObserver: window.MutationObserver,
     console: { warn() {} },
     setInterval: fn => { timers.set(++timerId, fn); return timerId; },
@@ -60,7 +62,7 @@ function fixture({ reject = false, setupError = false, unsupported = false } = {
     await Promise.resolve();
   };
   return { document, window, pip, root, board, parent, button, context, location, timers,
-    click, requests: () => requests };
+    click, requests: () => requests, setTime: value => { now = value; } };
 }
 
 test('moves the same board and restores original order when PiP closes', async () => {
@@ -277,4 +279,55 @@ test('closing during navigation does not resurrect a retired board in the new pa
   f.pip.close();
   assert.equal(f.document.querySelector('wc-chess-board'), null);
   assert.equal(f.root.isConnected, false);
+});
+
+test('daily exhaustion preserves PiP, waits at home, adopts the next frame board and stops on close', async () => {
+  const f = fixture();
+  f.location.href = 'https://www.chess.com/game/daily/1';
+  f.root.innerHTML = '<div class="piece"></div>';
+  const tick = () => { for (const callback of Array.from(f.timers.values())) callback(); };
+  await f.click(f.button);
+  f.parent.replaceChildren();
+  tick();
+  f.setTime(5000);
+  tick();
+  const frame = f.document.querySelector('#chess-daily-flow-frame');
+  assert.ok(frame);
+  assert.equal(f.pip.document.querySelector('[role="status"]').textContent, 'Aguardando próximo movimiento');
+  assert.equal(f.requests(), 1);
+  assert.equal(f.pip.closed, false);
+  const load = (url, html) => {
+    const doc = parseHTML(`<html><head></head><body>${html}</body></html>`).document;
+    const view = Object.assign(new EventTarget(), { Event, getComputedStyle: f.window.getComputedStyle });
+    Object.defineProperties(doc, {
+      location: { value: { href: url } },
+      defaultView: { value: view },
+      styleSheets: { value: [] },
+    });
+    Object.defineProperty(frame, 'contentDocument', { configurable: true, value: doc });
+    frame.dispatchEvent(new Event('load'));
+    return doc;
+  };
+  const home = load('https://www.chess.com/home', '<main></main>');
+  tick();
+  assert.equal(f.pip.document.querySelector('#floating-stage').style.visibility, 'hidden');
+  home.body.insertAdjacentHTML('beforeend', `<a class="daily-game-tile-component" href="/game/daily/2">
+    <div class="daily-game-tile-game-preview"></div><div class="daily-game-tile-time-remaining">1 day</div></a>`);
+  tick();
+  assert.equal(frame.src, 'https://www.chess.com/game/daily/2');
+  const game = load('https://www.chess.com/game/daily/2', '<main><wc-chess-board><div class="piece"></div></wc-chess-board></main>');
+  const next = game.querySelector('wc-chess-board');
+  next.getBoundingClientRect = () => ({ width: 536, height: 536 });
+  tick();
+  assert.equal(f.pip.document.querySelector('wc-chess-board'), next);
+  assert.equal(f.pip.document.querySelector('[role="status"]'), null);
+  assert.equal(f.pip.document.querySelector('#floating-stage').style.visibility, '');
+  assert.equal(f.requests(), 1);
+  f.pip.close();
+  assert.equal(game.querySelector('wc-chess-board'), next);
+  assert.equal(f.document.querySelector('wc-chess-board'), null);
+  frame.src = 'no-more-navigation';
+  f.setTime(90000);
+  tick();
+  assert.equal(frame.src, 'no-more-navigation');
 });
